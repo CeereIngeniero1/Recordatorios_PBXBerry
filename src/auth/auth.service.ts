@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
@@ -14,6 +19,8 @@ type UsuarioSql = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly jwtService: JwtService,
@@ -46,35 +53,45 @@ export class AuthService {
   }
 
   private async validarUsuario(username: string, password: string): Promise<UsuarioSql> {
-    const pool = this.databaseService.getPool();
-    const result = await pool
-      .request()
-      .input('username', username)
-      .input('password', password)
-      .query(`
-        SELECT TOP (1)
-          [Id Contraseña] AS idContrasena,
-          [Documento Entidad] AS documentoEntidad,
-          [Nombre de Usuario] AS nombreUsuario,
-          [Id Nivel] AS idNivel,
-          [Id Estado] AS idEstado
-        FROM [dbo].[Contraseña]
-        WHERE [Nombre de Usuario] = @username
-          AND [Contraseña] = @password
-          AND [Id Estado] = 7
-      `);
+    try {
+      const pool = this.databaseService.getPool();
+      const result = await pool
+        .request()
+        .input('username', username)
+        .input('password', password)
+        .query(`
+          SELECT TOP (1)
+            [Id Contraseña] AS idContrasena,
+            [Documento Entidad] AS documentoEntidad,
+            [Nombre de Usuario] AS nombreUsuario,
+            [Id Nivel] AS idNivel,
+            [Id Estado] AS idEstado
+          FROM [dbo].[Contraseña]
+          WHERE [Nombre de Usuario] = @username
+            AND [Contraseña] = @password
+            AND [Id Estado] = 7
+        `);
 
-    const usuario = result.recordset[0] as UsuarioSql | undefined;
-    if (!usuario) {
-      throw new UnauthorizedException('Usuario o contraseña invalida.');
+      const usuario = result.recordset[0] as UsuarioSql | undefined;
+      if (!usuario) {
+        throw new UnauthorizedException('Usuario o contraseña invalida.');
+      }
+      return usuario;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error('Error al validar usuario contra SQL Server.', error as Error);
+      throw new InternalServerErrorException('No fue posible validar el usuario.');
     }
-    return usuario;
   }
 
   private getJwtSecret(): string {
     const secret = this.configService.get<string>('JWT_SECRET');
     if (!secret) {
-      throw new Error('La variable de entorno JWT_SECRET es obligatoria.');
+      throw new InternalServerErrorException(
+        'La variable de entorno JWT_SECRET es obligatoria.',
+      );
     }
     return secret;
   }
