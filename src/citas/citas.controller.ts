@@ -10,16 +10,18 @@ export class CitasController {
 
   @Post('confirmacion')
   async getConfirmacionCitas(@Body() body: FiltroFechasDto) {
-    this.validarFormatoFecha(body.fechaIni, 'fechaIni');
-    this.validarFormatoFecha(body.fechaFin, 'fechaFin');
-    return this.citasService.obtenerConfirmacionCitas(body);
+    const filtros = body ?? {};
+    this.validarFormatoFecha(filtros.fechaIni, 'fechaIni');
+    this.validarFormatoFecha(filtros.fechaFin, 'fechaFin');
+    return this.citasService.obtenerConfirmacionCitas(filtros);
   }
 
   @Post('cancelacion')
   async getCancelacionCitas(@Body() body: FiltroFechasDto) {
-    this.validarFormatoFecha(body.fechaIni, 'fechaIni');
-    this.validarFormatoFecha(body.fechaFin, 'fechaFin');
-    return this.citasService.obtenerCancelacionCitas(body);
+    const filtros = body ?? {};
+    this.validarFormatoFecha(filtros.fechaIni, 'fechaIni');
+    this.validarFormatoFecha(filtros.fechaFin, 'fechaFin');
+    return this.citasService.obtenerCancelacionCitas(filtros);
   }
 
   private validarFormatoFecha(value: string | undefined, nombreCampo: string): void {

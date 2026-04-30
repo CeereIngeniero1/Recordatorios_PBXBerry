@@ -22,11 +22,11 @@ export class CitasService {
 
     if (filtros.fechaIni) {
       request.input('fechaIni', Date, filtros.fechaIni);
-      conditions.push('CAST([appointment_date] AS DATE) >= @fechaIni');
+      conditions.push('CAST([Fecha Inicio CompromisoVI] AS DATE) >= @fechaIni');
     }
     if (filtros.fechaFin) {
       request.input('fechaFin', Date, filtros.fechaFin);
-      conditions.push('CAST([appointment_date] AS DATE) <= @fechaFin');
+      conditions.push('CAST([Fecha Inicio CompromisoVI] AS DATE) <= @fechaFin');
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
