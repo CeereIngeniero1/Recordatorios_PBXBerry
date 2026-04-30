@@ -1,0 +1,12 @@
+CREATE VIEW [dbo].[Cnsta Confirmación de Citas]
+AS
+SELECT TOP (100) PERCENT '57' + eii.[Teléfono Celular EntidadII] AS phone, e.[Nombre Completo Entidad] AS contacname, cvi.[Id CompromisoVI] AS consecutivo, 
+                  cvi.[Fecha Inicio CompromisoVI] + CAST(cvi.[Hora Inicio CompromisoVI] AS DATETIME) AS appointment_date, 0 AS vlrcopago, e.[Nombre Completo Entidad] AS responsible_name, 'Odontologia' AS Specialty_name, 
+                  eii.[Dirección EntidadII] AS address, 'w' AS send_type, cvi.[Id Estado], cvi.[Fecha Inicio CompromisoVI]
+FROM     dbo.CompromisoVI AS cvi INNER JOIN
+                  dbo.Entidad AS e ON e.[Documento Entidad] = cvi.[Entidad Atendida] INNER JOIN
+                  dbo.EntidadIII AS eiii ON eiii.[Documento Entidad] = cvi.[Entidad Atendida] INNER JOIN
+                  dbo.EntidadII AS eii ON eii.[Documento Entidad] = cvi.[Entidad Atendida]
+WHERE  (cvi.[Id Estado] = 58)
+ORDER BY consecutivo DESC
+GO
