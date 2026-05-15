@@ -1,5 +1,6 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ActualizarEstadoChatbotDto } from './dto/actualizar-estado-chatbot.dto';
 import { FiltroFechasDto } from './dto/filtro-fechas.dto';
 import { CitasService } from './citas.service';
 
@@ -18,5 +19,10 @@ export class CitasController {
   async getCancelacionCitas(@Body() body: FiltroFechasDto = {}) {
     const filtros = body;
     return this.citasService.obtenerCancelacionCitas(filtros);
+  }
+
+  @Patch('estado-chatbot')
+  async actualizarEstadoChatbot(@Body() body: ActualizarEstadoChatbotDto) {
+    return this.citasService.actualizarEstadoChatbot(body);
   }
 }

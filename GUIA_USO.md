@@ -139,6 +139,54 @@ Respuesta esperada:
 ]
 ```
 
+### Actualizar estado chatbot de una cita
+
+**PATCH** `/citas/estado-chatbot`
+
+Actualiza el campo `[Id Estado Chatbot]` en `CompromisoVI` para marcar la cita como pendiente, confirmada o cancelada.
+
+Body JSON:
+
+```json
+{
+  "consecutivo": 12345,
+  "estado": "confirmada"
+}
+```
+
+Valores permitidos para `estado`:
+
+| estado      | Id Estado Chatbot |
+| ----------- | ----------------- |
+| `pendiente` | 1                 |
+| `confirmada`| 2                 |
+| `cancelada` | 3                 |
+
+Respuesta esperada:
+
+```json
+{
+  "consecutivo": 12345,
+  "estado": "confirmada",
+  "idEstadoChatbot": 2
+}
+```
+
+Errores:
+
+- `400` si `estado` no es valido o el body esta incompleto.
+- `404` si no existe el `consecutivo`.
+- `500` si falla la actualizacion en base de datos.
+
+Ejemplo (cURL):
+
+```bash
+curl --location --request PATCH "http://localhost:3000/citas/estado-chatbot" \
+--header "Authorization: Bearer TU_TOKEN" \
+--header "Content-Type: application/json" \
+--data "{ \"consecutivo\": 12345, \"estado\": \"confirmada\" }"
+```
+
 ## 6) Filtros por fecha
 
 Ambos endpoints (`confirmacion` y `cancelacion`) aceptan filtros opcionales en el body JSON:
@@ -172,4 +220,6 @@ Reglas:
 - Vista confirmacion: `[dbo].[Cnsta Confirmación de Citas]`
 - Vista cancelacion: `[dbo].[Cnsta Cancelacion de Citas]`
 - Usuarios login JWT: `[dbo].[Contraseña]`
+- Estado chatbot: tabla `[Estado Chatbot]`; columna en citas: `CompromisoVI.[Id Estado Chatbot]`
+- Actualizacion de estado: `UPDATE dbo.CompromisoVI SET [Id Estado Chatbot] = ... WHERE [Id CompromisoVI] = ...`
 

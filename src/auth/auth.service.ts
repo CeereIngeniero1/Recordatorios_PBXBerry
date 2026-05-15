@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -28,6 +29,9 @@ export class AuthService {
   ) {}
 
   async login(credentials: LoginDto) {
+    if (!credentials?.username || !credentials?.password) {
+      throw new BadRequestException('Debes enviar username y password en el body JSON.');
+    }
     const usuario = await this.validarUsuario(credentials.username, credentials.password);
     const payload = {
       sub: usuario.idContrasena,

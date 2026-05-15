@@ -1,7 +1,22 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { Date } from 'mssql';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Date, Int } from 'mssql';
 import { DatabaseService } from '../database/database.service';
+import {
+  ActualizarEstadoChatbotDto,
+  EstadoChatbotCita,
+} from './dto/actualizar-estado-chatbot.dto';
 import { FiltroFechasDto } from './dto/filtro-fechas.dto';
+
+const ESTADO_CHATBOT_POR_CITA: Record<EstadoChatbotCita, number> = {
+  [EstadoChatbotCita.PENDIENTE]: 1,
+  [EstadoChatbotCita.CONFIRMADA]: 2,
+  [EstadoChatbotCita.CANCELADA]: 3,
+};
 
 @Injectable()
 export class CitasService {
@@ -15,6 +30,46 @@ export class CitasService {
 
   async obtenerCancelacionCitas(filtros: FiltroFechasDto) {
     return this.obtenerCitasPorVista('[dbo].[Cnsta Cancelacion de Citas]', filtros);
+  }
+
+  async actualizarEstadoChatbot(dto: ActualizarEstadoChatbotDto) {
+    const idEstadoChatbot = ESTADO_CHATBOT_POR_CITA[dto.estado];
+
+    try {
+      const pool = this.databaseService.getPool();
+      const result = await pool
+        .request()
+        .input('consecutivo', Int, dto.consecutivo)
+        .input('idEstadoChatbot', Int, idEstadoChatbot)
+        .query(`
+          UPDATE dbo.CompromisoVI
+          SET [Id Estado Chatbot] = @idEstadoChatbot
+          WHERE [Id CompromisoVI] = @consecutivo
+        `);
+
+      if (result.rowsAffected[0] === 0) {
+        throw new NotFoundException(
+          `No se encontro la cita con consecutivo ${dto.consecutivo}.`,
+        );
+      }
+
+      return {
+        consecutivo: dto.consecutivo,
+        estado: dto.estado,
+        idEstadoChatbot,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(
+        `Error actualizando estado chatbot para consecutivo ${dto.consecutivo}.`,
+        error as Error,
+      );
+      throw new InternalServerErrorException(
+        'No fue posible actualizar el estado de la cita.',
+      );
+    }
   }
 
   private async obtenerCitasPorVista(vista: string, filtros: FiltroFechasDto) {

@@ -1,0 +1,8 @@
+
+
+Create table [Estado Chatbot]
+(
+[Id Estado Chatbot] int NOT NULL primary key,
+[Descripcion Chatbot] varchar (100),
+[Id Estado] int 
+)
