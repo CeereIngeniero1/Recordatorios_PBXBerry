@@ -6,3 +6,15 @@ Create table [Estado Chatbot]
 [Descripcion Chatbot] varchar (100),
 [Id Estado] int 
 )
+
+INSERT INTO [Estado Chatbot]
+VALUES
+(1 ,'Pendiente' ,7),
+(2,'Confirmada',7),
+(3,'Cancelada',7)
+
+
+ALTER TABLE COMPromisovi ADD  [Id Estado Chatbot] INT DEFAULT 1
+
+
+
