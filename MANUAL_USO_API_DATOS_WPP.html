@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Manual de uso - API Datos WPP</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 2cm 1.8cm;
+    }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+    }
+    h1 {
+      color: #0d47a1;
+      font-size: 22pt;
+      border-bottom: 3px solid #0d47a1;
+      padding-bottom: 8px;
+      margin-top: 0;
+    }
+    h2 {
+      color: #1565c0;
+      font-size: 14pt;
+      margin-top: 1.4em;
+      page-break-after: avoid;
+    }
+    h3 {
+      color: #1976d2;
+      font-size: 11.5pt;
+      page-break-after: avoid;
+    }
+    code, pre {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9pt;
+    }
+    pre {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      page-break-inside: avoid;
+    }
+    code {
+      background: #f0f4f8;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #bbb;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    th {
+      background: #e3f2fd;
+      color: #0d47a1;
+    }
+    tr:nth-child(even) td {
+      background: #fafafa;
+    }
+    ul {
+      margin: 0.4em 0;
+    }
+    li {
+      margin: 0.25em 0;
+    }
+    .cover {
+      text-align: center;
+      padding: 3cm 0 2cm;
+      page-break-after: always;
+    }
+    .cover h1 {
+      border: none;
+      font-size: 26pt;
+    }
+    .cover p {
+      color: #555;
+      font-size: 12pt;
+    }
+    .flow {
+      background: #e8f4fd;
+      border-left: 4px solid #1976d2;
+      padding: 12px 16px;
+      margin: 12px 0;
+    }
+    .footer-note {
+      margin-top: 2em;
+      font-size: 9pt;
+      color: #666;
+      border-top: 1px solid #ccc;
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <h1>Manual de uso</h1>
+    <p><strong>API Datos WPP</strong></p>
+    <p>Integracion de citas, JWT y estados chatbot</p>
+    <p>Ceere — Documento generado desde GUIA_USO.md</p>
+  </div>
+  <h1>Guia de uso - API Datos WPP</h1>
+<h2>1) Requisitos</h2>
+<ul>
+<li>Node.js 18+ recomendado</li>
+<li>pnpm instalado</li>
+<li>Acceso a SQL Server</li>
+<li>Columna <code>[Id Estado Chatbot]</code> creada en <code>CompromisoVI</code> (ver <code>sql/TABLA ESTADOS.TXT</code>)</li>
+</ul>
+<h2>2) Configuracion</h2>
+<p>Crear o completar el archivo <code>.env</code> en la raiz del proyecto:</p>
+<pre><code class="language-env">PORT=3000
+# o BACK_PORT=3000
+
+DB_SERVER=TU_SERVIDOR\SQLEXPRESS
+DB_DATABASE=TU_BASE_DE_DATOS
+DB_USER=TU_USUARIO
+DB_PASSWORD=TU_PASSWORD
+DB_PORT=1433
+DB_ENCRYPT=false
+DB_TRUST_CERT=true
+
+JWT_SECRET=CAMBIA_ESTE_SECRETO
+JWT_EXPIRES_IN=8h
+</code></pre>
+<p>Notas:<br />
+- El puerto se toma en este orden: <code>PORT</code>, luego <code>BACK_PORT</code>, luego <code>3000</code>.<br />
+- Para login, el usuario debe tener <code>Id Estado = 7</code> en la tabla <code>Contraseña</code>.</p>
+<h2>3) Arranque del proyecto</h2>
+<pre><code class="language-bash">pnpm install
+pnpm run start:dev
+</code></pre>
+<p>Base URL local:</p>
+<p><code>http://localhost:3000</code></p>
+<h2>4) Autenticacion JWT (obligatoria)</h2>
+<p>Todas las rutas de <code>/citas/*</code> exigen token JWT. Sin token responde <code>401</code> con mensaje <code>Token JWT requerido.</code></p>
+<p>Rutas publicas (sin token): <code>GET /</code> y <code>POST /auth/login</code>.</p>
+<h3>Login</h3>
+<p><strong>POST</strong> <code>/auth/login</code></p>
+<p>Body JSON:</p>
+<pre><code class="language-json">{
+  &quot;username&quot;: &quot;USUARIO_SQL&quot;,
+  &quot;password&quot;: &quot;CLAVE_SQL&quot;
+}
+</code></pre>
+<p>Respuesta esperada:</p>
+<pre><code class="language-json">{
+  &quot;access_token&quot;: &quot;jwt...&quot;,
+  &quot;user&quot;: {
+    &quot;sub&quot;: 123,
+    &quot;username&quot;: &quot;USUARIO_SQL&quot;,
+    &quot;documentoEntidad&quot;: &quot;....&quot;,
+    &quot;idNivel&quot;: 1,
+    &quot;idEstado&quot;: 7
+  }
+}
+</code></pre>
+<p>Guarda <code>access_token</code> y usalo en el header:</p>
+<p><code>Authorization: Bearer &lt;access_token&gt;</code></p>
+<h2>5) Flujo completo: citas y actualizar estado</h2>
+<div class="flow">
+  <ol>
+    <li><strong>Cliente</strong> → POST /auth/login</li>
+    <li><strong>API</strong> valida usuario en SQL Server → devuelve <code>access_token</code></li>
+    <li><strong>Cliente</strong> → POST /citas/confirmacion o /cancelacion (Bearer token)</li>
+    <li><strong>API</strong> consulta vista → lista citas con <code>consecutivo</code></li>
+    <li><strong>Cliente</strong> → PATCH /citas/estado-chatbot (Bearer token)</li>
+    <li><strong>API</strong> actualiza <code>CompromisoVI.[Id Estado Chatbot]</code></li>
+  </ol>
+</div>
+
+<ol>
+<li>Hacer login y obtener <code>access_token</code>.</li>
+<li>Consultar citas (<code>confirmacion</code> o <code>cancelacion</code>) con el token.</li>
+<li>Tomar el campo <code>consecutivo</code> de la respuesta (es <code>[Id CompromisoVI]</code> en <code>CompromisoVI</code>).</li>
+<li>Llamar <code>estado-chatbot</code> con ese <code>consecutivo</code> y el <code>estado</code> deseado.</li>
+</ol>
+<p>Importante:<br />
+- <code>consecutivo</code> <strong>no</strong> es telefono ni documento: es el valor de <code>[Id CompromisoVI]</code>.<br />
+- Despues de marcar <code>confirmada</code> o <code>cancelada</code>, la cita deja de salir en las vistas (filtran <code>Id Estado Chatbot = 1</code> pendiente).</p>
+<h2>6) Recursos de citas</h2>
+<p>Header obligatorio en todos los endpoints de esta seccion:</p>
+<p><code>Authorization: Bearer &lt;access_token&gt;</code></p>
+<h3>Confirmacion de citas</h3>
+<p><strong>POST</strong> <code>/citas/confirmacion</code></p>
+<p>Body JSON (opcional):</p>
+<pre><code class="language-json">{
+  &quot;fechaIni&quot;: &quot;2026-04-01&quot;,
+  &quot;fechaFin&quot;: &quot;2026-04-30&quot;
+}
+</code></pre>
+<p>Respuesta esperada:</p>
+<pre><code class="language-json">[
+  {
+    &quot;phone&quot;: &quot;573001112233&quot;,
+    &quot;contacname&quot;: &quot;NOMBRE PACIENTE&quot;,
+    &quot;consecutivo&quot;: 12345,
+    &quot;appointment_date&quot;: &quot;2026-04-25 14:30&quot;,
+    &quot;vlrcopago&quot;: 0,
+    &quot;responsible_name&quot;: &quot;NOMBRE PACIENTE&quot;,
+    &quot;specialty_name&quot;: &quot;Odontologia&quot;,
+    &quot;address&quot;: &quot;Direccion del paciente&quot;,
+    &quot;send_type&quot;: &quot;w&quot;
+  }
+]
+</code></pre>
+<h3>Cancelacion de citas</h3>
+<p><strong>POST</strong> <code>/citas/cancelacion</code></p>
+<p>Body JSON (opcional):</p>
+<pre><code class="language-json">{
+  &quot;fechaIni&quot;: &quot;2026-04-01&quot;,
+  &quot;fechaFin&quot;: &quot;2026-04-30&quot;
+}
+</code></pre>
+<h3>Actualizar estado chatbot de una cita</h3>
+<p><strong>PATCH</strong> <code>/citas/estado-chatbot</code> (no usar POST; esa ruta no existe)</p>
+<p>Actualiza <code>[Id Estado Chatbot]</code> en <code>dbo.CompromisoVI</code> donde <code>[Id CompromisoVI] = consecutivo</code>.</p>
+<p>Body JSON:</p>
+<pre><code class="language-json">{
+  &quot;consecutivo&quot;: 12345,
+  &quot;estado&quot;: &quot;confirmada&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>estado</th>
+<th>Id Estado Chatbot</th>
+<th>Descripcion en BD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pendiente</code></td>
+<td>1</td>
+<td>Pendiente</td>
+</tr>
+<tr>
+<td><code>confirmada</code></td>
+<td>2</td>
+<td>Confirmada</td>
+</tr>
+<tr>
+<td><code>cancelada</code></td>
+<td>3</td>
+<td>Cancelada</td>
+</tr>
+</tbody>
+</table>
+<p>Respuesta esperada:</p>
+<pre><code class="language-json">{
+  &quot;consecutivo&quot;: 12345,
+  &quot;estado&quot;: &quot;confirmada&quot;,
+  &quot;idEstadoChatbot&quot;: 2
+}
+</code></pre>
+<p>Errores:</p>
+<table>
+<thead>
+<tr>
+<th>Codigo</th>
+<th>Causa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401</code></td>
+<td>Falta header <code>Authorization: Bearer ...</code> o token invalido/expirado</td>
+</tr>
+<tr>
+<td><code>400</code></td>
+<td><code>estado</code> invalido, body incompleto o <code>consecutivo</code> no es numero</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>No existe <code>[Id CompromisoVI]</code> con ese <code>consecutivo</code></td>
+</tr>
+<tr>
+<td><code>500</code></td>
+<td>Error SQL (ej. columna <code>[Id Estado Chatbot]</code> no existe en la tabla)</td>
+</tr>
+</tbody>
+</table>
+<p>Ejemplo completo (PowerShell):</p>
+<pre><code class="language-powershell"># 1) Login
+$login = Invoke-RestMethod -Uri &quot;http://localhost:3000/auth/login&quot; -Method POST `
+  -ContentType &quot;application/json&quot; `
+  -Body '{&quot;username&quot;:&quot;USUARIO&quot;,&quot;password&quot;:&quot;CLAVE&quot;}'
+$token = $login.access_token
+
+# 2) Actualizar estado
+$headers = @{ Authorization = &quot;Bearer $token&quot; }
+Invoke-RestMethod -Uri &quot;http://localhost:3000/citas/estado-chatbot&quot; -Method PATCH `
+  -Headers $headers -ContentType &quot;application/json&quot; `
+  -Body '{&quot;consecutivo&quot;:12345,&quot;estado&quot;:&quot;confirmada&quot;}'
+</code></pre>
+<p>Ejemplo (cURL):</p>
+<pre><code class="language-bash"># Login
+curl --location &quot;http://localhost:3000/auth/login&quot; \
+  --header &quot;Content-Type: application/json&quot; \
+  --data &quot;{\&quot;username\&quot;:\&quot;USUARIO\&quot;,\&quot;password\&quot;:\&quot;CLAVE\&quot;}&quot;
+
+# Actualizar estado (reemplaza TU_TOKEN y el consecutivo real)
+curl --location --request PATCH &quot;http://localhost:3000/citas/estado-chatbot&quot; \
+  --header &quot;Authorization: Bearer TU_TOKEN&quot; \
+  --header &quot;Content-Type: application/json&quot; \
+  --data &quot;{\&quot;consecutivo\&quot;:12345,\&quot;estado\&quot;:\&quot;confirmada\&quot;}&quot;
+</code></pre>
+<h2>7) Filtros por fecha</h2>
+<p>Ambos endpoints (<code>confirmacion</code> y <code>cancelacion</code>) aceptan filtros opcionales en el body JSON:</p>
+<ul>
+<li><code>fechaIni</code> (YYYY-MM-DD)</li>
+<li><code>fechaFin</code> (YYYY-MM-DD)</li>
+</ul>
+<p>Reglas:<br />
+- Si no envias filtros, retorna todos los registros de la vista.<br />
+- Si envias fechas, el filtro aplica sobre <code>appointment_date</code>.<br />
+- <code>appointment_date</code> siempre se entrega con formato fijo <code>YYYY-MM-DD HH:mm</code>.<br />
+- La respuesta de citas siempre incluye solo estas columnas: <code>phone</code>, <code>contacname</code>, <code>consecutivo</code>, <code>appointment_date</code>, <code>vlrcopago</code>, <code>responsible_name</code>, <code>specialty_name</code>, <code>address</code>, <code>send_type</code>.<br />
+- Si el formato no es <code>YYYY-MM-DD</code>, retorna <code>400 Bad Request</code>.</p>
+<h2>8) Modelo de datos (referencia)</h2>
+<p>Tabla principal: <code>dbo.CompromisoVI</code></p>
+<table>
+<thead>
+<tr>
+<th>Campo API</th>
+<th>Columna SQL</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>consecutivo</code></td>
+<td><code>[Id CompromisoVI]</code></td>
+<td>Identificador de la cita para actualizar estado</td>
+</tr>
+<tr>
+<td>(actualizacion)</td>
+<td><code>[Id Estado Chatbot]</code></td>
+<td>1 pendiente, 2 confirmada, 3 cancelada</td>
+</tr>
+</tbody>
+</table>
+<p>Catalogo: <code>[dbo].[Estado Chatbot]</code> (ver <code>sql/TABLA ESTADOS.TXT</code>).</p>
+<p>Vistas:<br />
+- <code>[dbo].[Cnsta Confirmación de Citas]</code> — citas con <code>[Id Estado] = 58</code> y chatbot pendiente<br />
+- <code>[dbo].[Cnsta Cancelacion de Citas]</code> — citas con <code>[Id Estado] IN (60, 61)</code> y chatbot pendiente</p>
+<p>SQL de actualizacion ejecutado por la API:</p>
+<pre><code class="language-sql">UPDATE dbo.CompromisoVI
+SET [Id Estado Chatbot] = @idEstadoChatbot
+OUTPUT INSERTED.[Id CompromisoVI], INSERTED.[Id Estado Chatbot]
+WHERE [Id CompromisoVI] = @consecutivo
+</code></pre>
+<h2>9) Solucion de problemas</h2>
+<ul>
+<li><strong>401 Token JWT requerido</strong>: primero llama <code>/auth/login</code> y envia <code>Authorization: Bearer &lt;access_token&gt;</code>.</li>
+<li><strong>404 No se encontro la cita</strong>: el <code>consecutivo</code> debe ser exactamente el <code>consecutivo</code> devuelto por confirmacion/cancelacion (es <code>[Id CompromisoVI]</code>).</li>
+<li><strong>400 estado debe ser pendiente, confirmada o cancelada</strong>: usa minusculas exactas en <code>estado</code>.</li>
+<li><strong>La cita ya no aparece en confirmacion</strong>: si ya la marcaste <code>confirmada</code> o <code>cancelada</code>, su <code>[Id Estado Chatbot]</code> dejo de ser <code>1</code> y las vistas ya no la listan (comportamiento esperado).</li>
+<li><strong>500 al actualizar</strong>: ejecuta el script de <code>sql/TABLA ESTADOS.TXT</code> para crear la columna y la tabla de estados.</li>
+</ul>
+  <p class="footer-note">API Datos WPP — Manual de uso. Endpoint de estado: PATCH /citas/estado-chatbot</p>
+</body>
+</html>
