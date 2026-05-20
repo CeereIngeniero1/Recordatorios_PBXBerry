@@ -1,11 +1,9 @@
-import { Body, Controller, Patch, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Body, Controller, Patch, Post } from '@nestjs/common';
 import { ActualizarEstadoChatbotDto } from './dto/actualizar-estado-chatbot.dto';
 import { FiltroFechasDto } from './dto/filtro-fechas.dto';
 import { CitasService } from './citas.service';
 
 @Controller('citas')
-@UseGuards(JwtAuthGuard)
 export class CitasController {
   constructor(private readonly citasService: CitasService) {}
 
@@ -22,6 +20,7 @@ export class CitasController {
   }
 
   @Patch('estado-chatbot')
+  @Post('estado-chatbot')
   async actualizarEstadoChatbot(@Body() body: ActualizarEstadoChatbotDto) {
     return this.citasService.actualizarEstadoChatbot(body);
   }

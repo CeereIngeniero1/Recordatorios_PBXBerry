@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsEnum, IsInt, Min } from 'class-validator';
 
 export enum EstadoChatbotCita {
@@ -7,6 +8,7 @@ export enum EstadoChatbotCita {
 }
 
 export class ActualizarEstadoChatbotDto {
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   consecutivo: number;

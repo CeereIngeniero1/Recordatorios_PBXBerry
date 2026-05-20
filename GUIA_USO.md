@@ -5,6 +5,7 @@
 - Node.js 18+ recomendado
 - pnpm instalado
 - Acceso a SQL Server
+- Columna `[Id Estado Chatbot]` creada en `CompromisoVI` (ver `sql/TABLA ESTADOS.TXT`)
 
 ## 2) Configuracion
 
@@ -41,7 +42,11 @@ Base URL local:
 
 `http://localhost:3000`
 
-## 4) Autenticacion JWT
+## 4) Autenticacion JWT (obligatoria)
+
+Todas las rutas de `/citas/*` exigen token JWT. Sin token responde `401` con mensaje `Token JWT requerido.`
+
+Rutas publicas (sin token): `GET /` y `POST /auth/login`.
 
 ### Login
 
@@ -71,9 +76,43 @@ Respuesta esperada:
 }
 ```
 
-## 5) Recursos de citas
+Guarda `access_token` y usalo en el header:
 
-Todos estos endpoints requieren header:
+`Authorization: Bearer <access_token>`
+
+## 5) Flujo completo: citas y actualizar estado
+
+```mermaid
+sequenceDiagram
+  participant Bot as Chatbot / Cliente
+  participant API as API Datos WPP
+  participant DB as SQL Server
+
+  Bot->>API: POST /auth/login
+  API->>DB: Valida Contraseña
+  API-->>Bot: access_token
+
+  Bot->>API: POST /citas/confirmacion (Bearer token)
+  API->>DB: Vista confirmacion
+  API-->>Bot: lista con consecutivo
+
+  Bot->>API: PATCH o POST /citas/estado-chatbot (Bearer token)
+  API->>DB: UPDATE CompromisoVI.Id Estado Chatbot
+  API-->>Bot: consecutivo + idEstadoChatbot
+```
+
+1. Hacer login y obtener `access_token`.
+2. Consultar citas (`confirmacion` o `cancelacion`) con el token.
+3. Tomar el campo `consecutivo` de la respuesta (es `[Id CompromisoVI]` en `CompromisoVI`).
+4. Llamar `estado-chatbot` con ese `consecutivo` y el `estado` deseado.
+
+Importante:
+- `consecutivo` **no** es telefono ni documento: es el valor de `[Id CompromisoVI]`.
+- Despues de marcar `confirmada` o `cancelada`, la cita deja de salir en las vistas (filtran `Id Estado Chatbot = 1` pendiente).
+
+## 6) Recursos de citas
+
+Header obligatorio en todos los endpoints de esta seccion:
 
 `Authorization: Bearer <access_token>`
 
@@ -81,7 +120,7 @@ Todos estos endpoints requieren header:
 
 **POST** `/citas/confirmacion`
 
-Body JSON:
+Body JSON (opcional):
 
 ```json
 {
@@ -112,7 +151,7 @@ Respuesta esperada:
 
 **POST** `/citas/cancelacion`
 
-Body JSON:
+Body JSON (opcional):
 
 ```json
 {
@@ -121,29 +160,11 @@ Body JSON:
 }
 ```
 
-Respuesta esperada:
-
-```json
-[
-  {
-    "phone": "573009998877",
-    "contacname": "NOMBRE PACIENTE",
-    "consecutivo": 12346,
-    "appointment_date": "2026-04-26 16:00",
-    "vlrcopago": 0,
-    "responsible_name": "NOMBRE PACIENTE",
-    "specialty_name": "Odontologia",
-    "address": "Direccion del paciente",
-    "send_type": "w"
-  }
-]
-```
-
 ### Actualizar estado chatbot de una cita
 
-**PATCH** `/citas/estado-chatbot`
+**PATCH** o **POST** `/citas/estado-chatbot`
 
-Actualiza el campo `[Id Estado Chatbot]` en `CompromisoVI` para marcar la cita como pendiente, confirmada o cancelada.
+Actualiza `[Id Estado Chatbot]` en `dbo.CompromisoVI` donde `[Id CompromisoVI] = consecutivo`.
 
 Body JSON:
 
@@ -154,13 +175,11 @@ Body JSON:
 }
 ```
 
-Valores permitidos para `estado`:
-
-| estado      | Id Estado Chatbot |
-| ----------- | ----------------- |
-| `pendiente` | 1                 |
-| `confirmada`| 2                 |
-| `cancelada` | 3                 |
+| estado       | Id Estado Chatbot | Descripcion en BD |
+| ------------ | ----------------- | ----------------- |
+| `pendiente`  | 1                 | Pendiente         |
+| `confirmada` | 2                 | Confirmada        |
+| `cancelada`  | 3                 | Cancelada         |
 
 Respuesta esperada:
 
@@ -174,52 +193,86 @@ Respuesta esperada:
 
 Errores:
 
-- `400` si `estado` no es valido o el body esta incompleto.
-- `404` si no existe el `consecutivo`.
-- `500` si falla la actualizacion en base de datos.
+| Codigo | Causa |
+| ------ | ----- |
+| `401` | Falta header `Authorization: Bearer ...` o token invalido/expirado |
+| `400` | `estado` invalido, body incompleto o `consecutivo` no es numero |
+| `404` | No existe `[Id CompromisoVI]` con ese `consecutivo` |
+| `500` | Error SQL (ej. columna `[Id Estado Chatbot]` no existe en la tabla) |
+
+Ejemplo completo (PowerShell):
+
+```powershell
+# 1) Login
+$login = Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST `
+  -ContentType "application/json" `
+  -Body '{"username":"USUARIO","password":"CLAVE"}'
+$token = $login.access_token
+
+# 2) Actualizar estado
+$headers = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri "http://localhost:3000/citas/estado-chatbot" -Method PATCH `
+  -Headers $headers -ContentType "application/json" `
+  -Body '{"consecutivo":12345,"estado":"confirmada"}'
+```
 
 Ejemplo (cURL):
 
 ```bash
+# Login
+curl --location "http://localhost:3000/auth/login" \
+  --header "Content-Type: application/json" \
+  --data "{\"username\":\"USUARIO\",\"password\":\"CLAVE\"}"
+
+# Actualizar estado (reemplaza TU_TOKEN y el consecutivo real)
 curl --location --request PATCH "http://localhost:3000/citas/estado-chatbot" \
---header "Authorization: Bearer TU_TOKEN" \
---header "Content-Type: application/json" \
---data "{ \"consecutivo\": 12345, \"estado\": \"confirmada\" }"
+  --header "Authorization: Bearer TU_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data "{\"consecutivo\":12345,\"estado\":\"confirmada\"}"
 ```
 
-## 6) Filtros por fecha
+## 7) Filtros por fecha
 
 Ambos endpoints (`confirmacion` y `cancelacion`) aceptan filtros opcionales en el body JSON:
 
 - `fechaIni` (YYYY-MM-DD)
 - `fechaFin` (YYYY-MM-DD)
 
-Ejemplos:
-
-- `POST /citas/confirmacion` con `{ "fechaIni": "2026-04-01", "fechaFin": "2026-04-30" }`
-- `POST /citas/cancelacion` con `{ "fechaIni": "2026-04-15" }`
-
-Ejemplo (Postman/cURL con body):
-
-```bash
-curl --location "http://localhost:3000/citas/confirmacion" \
---header "Authorization: Bearer TU_TOKEN" \
---header "Content-Type: application/json" \
---data "{ \"fechaIni\": \"2026-04-01\", \"fechaFin\": \"2026-04-30\" }"
-```
-
 Reglas:
-- Si no envias filtros, retorna todos los registros.
+- Si no envias filtros, retorna todos los registros de la vista.
 - Si envias fechas, el filtro aplica sobre `appointment_date`.
 - `appointment_date` siempre se entrega con formato fijo `YYYY-MM-DD HH:mm`.
 - La respuesta de citas siempre incluye solo estas columnas: `phone`, `contacname`, `consecutivo`, `appointment_date`, `vlrcopago`, `responsible_name`, `specialty_name`, `address`, `send_type`.
 - Si el formato no es `YYYY-MM-DD`, retorna `400 Bad Request`.
 
-## 7) Consultas SQL usadas
+## 8) Modelo de datos (referencia)
 
-- Vista confirmacion: `[dbo].[Cnsta Confirmación de Citas]`
-- Vista cancelacion: `[dbo].[Cnsta Cancelacion de Citas]`
-- Usuarios login JWT: `[dbo].[Contraseña]`
-- Estado chatbot: tabla `[Estado Chatbot]`; columna en citas: `CompromisoVI.[Id Estado Chatbot]`
-- Actualizacion de estado: `UPDATE dbo.CompromisoVI SET [Id Estado Chatbot] = ... WHERE [Id CompromisoVI] = ...`
+Tabla principal: `dbo.CompromisoVI`
 
+| Campo API      | Columna SQL           | Uso |
+| -------------- | --------------------- | --- |
+| `consecutivo`  | `[Id CompromisoVI]`   | Identificador de la cita para actualizar estado |
+| (actualizacion)| `[Id Estado Chatbot]` | 1 pendiente, 2 confirmada, 3 cancelada |
+
+Catalogo: `[dbo].[Estado Chatbot]` (ver `sql/TABLA ESTADOS.TXT`).
+
+Vistas:
+- `[dbo].[Cnsta Confirmación de Citas]` — citas con `[Id Estado] = 58` y chatbot pendiente
+- `[dbo].[Cnsta Cancelacion de Citas]` — citas con `[Id Estado] IN (60, 61)` y chatbot pendiente
+
+SQL de actualizacion ejecutado por la API:
+
+```sql
+UPDATE dbo.CompromisoVI
+SET [Id Estado Chatbot] = @idEstadoChatbot
+OUTPUT INSERTED.[Id CompromisoVI], INSERTED.[Id Estado Chatbot]
+WHERE [Id CompromisoVI] = @consecutivo
+```
+
+## 9) Solucion de problemas
+
+- **401 Token JWT requerido**: primero llama `/auth/login` y envia `Authorization: Bearer <access_token>`.
+- **404 No se encontro la cita**: el `consecutivo` debe ser exactamente el `consecutivo` devuelto por confirmacion/cancelacion (es `[Id CompromisoVI]`).
+- **400 estado debe ser pendiente, confirmada o cancelada**: usa minusculas exactas en `estado`.
+- **La cita ya no aparece en confirmacion**: si ya la marcaste `confirmada` o `cancelada`, su `[Id Estado Chatbot]` dejo de ser `1` y las vistas ya no la listan (comportamiento esperado).
+- **500 al actualizar**: ejecuta el script de `sql/TABLA ESTADOS.TXT` para crear la columna y la tabla de estados.

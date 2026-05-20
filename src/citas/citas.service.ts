@@ -44,19 +44,26 @@ export class CitasService {
         .query(`
           UPDATE dbo.CompromisoVI
           SET [Id Estado Chatbot] = @idEstadoChatbot
+          OUTPUT
+            INSERTED.[Id CompromisoVI] AS consecutivo,
+            INSERTED.[Id Estado Chatbot] AS idEstadoChatbot
           WHERE [Id CompromisoVI] = @consecutivo
         `);
 
-      if (result.rowsAffected[0] === 0) {
+      const fila = result.recordset[0] as
+        | { consecutivo: number; idEstadoChatbot: number }
+        | undefined;
+
+      if (!fila) {
         throw new NotFoundException(
-          `No se encontro la cita con consecutivo ${dto.consecutivo}.`,
+          `No se encontro la cita con Id CompromisoVI (consecutivo) ${dto.consecutivo}.`,
         );
       }
 
       return {
-        consecutivo: dto.consecutivo,
+        consecutivo: fila.consecutivo,
         estado: dto.estado,
-        idEstadoChatbot,
+        idEstadoChatbot: fila.idEstadoChatbot,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -67,7 +74,7 @@ export class CitasService {
         error as Error,
       );
       throw new InternalServerErrorException(
-        'No fue posible actualizar el estado de la cita.',
+        'No fue posible actualizar el estado de la cita. Verifica que exista la columna [Id Estado Chatbot] en CompromisoVI.',
       );
     }
   }
