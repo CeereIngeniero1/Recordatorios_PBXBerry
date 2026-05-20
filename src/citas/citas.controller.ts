@@ -20,7 +20,6 @@ export class CitasController {
   }
 
   @Patch('estado-chatbot')
-  @Post('estado-chatbot')
   async actualizarEstadoChatbot(@Body() body: ActualizarEstadoChatbotDto) {
     return this.citasService.actualizarEstadoChatbot(body);
   }

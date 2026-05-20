@@ -96,7 +96,7 @@ sequenceDiagram
   API->>DB: Vista confirmacion
   API-->>Bot: lista con consecutivo
 
-  Bot->>API: PATCH o POST /citas/estado-chatbot (Bearer token)
+  Bot->>API: PATCH /citas/estado-chatbot (Bearer token)
   API->>DB: UPDATE CompromisoVI.Id Estado Chatbot
   API-->>Bot: consecutivo + idEstadoChatbot
 ```
@@ -162,7 +162,7 @@ Body JSON (opcional):
 
 ### Actualizar estado chatbot de una cita
 
-**PATCH** o **POST** `/citas/estado-chatbot`
+**PATCH** `/citas/estado-chatbot` (no usar POST; esa ruta no existe)
 
 Actualiza `[Id Estado Chatbot]` en `dbo.CompromisoVI` donde `[Id CompromisoVI] = consecutivo`.
 
