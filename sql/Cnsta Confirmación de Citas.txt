@@ -7,6 +7,6 @@ FROM     dbo.CompromisoVI AS cvi INNER JOIN
                   dbo.Entidad AS e ON e.[Documento Entidad] = cvi.[Entidad Atendida] INNER JOIN
                   dbo.EntidadIII AS eiii ON eiii.[Documento Entidad] = cvi.[Entidad Atendida] INNER JOIN
                   dbo.EntidadII AS eii ON eii.[Documento Entidad] = cvi.[Entidad Atendida]
-WHERE  (cvi.[Id Estado] = 58)
+WHERE  ((cvi.[Id Estado] = 58)AND [Id Estado Chatbot]  = 1)
 ORDER BY consecutivo DESC
 GO
