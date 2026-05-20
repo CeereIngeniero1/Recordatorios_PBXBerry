@@ -14,7 +14,7 @@ VALUES
 (3,'Cancelada',7)
 
 
-ALTER TABLE COMPromisovi ADD  [Id Estado Chatbot] INT DEFAULT 1
+ALTER TABLE [CompromisoVI] ADD  [Id Estado Chatbot] INT DEFAULT 1
 
 
 
