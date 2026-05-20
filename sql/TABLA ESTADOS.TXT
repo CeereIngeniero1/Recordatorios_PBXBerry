@@ -16,5 +16,5 @@ VALUES
 
 ALTER TABLE [CompromisoVI] ADD  [Id Estado Chatbot] INT DEFAULT 1
 
-
+UPDATE [CompromisoVI] SET  [Id Estado Chatbot]  = 1 
 
